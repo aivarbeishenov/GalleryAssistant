@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Gallery Assistant</string>
+    <string name="result_text_default">Наведите камеру на QR-код</string>
+    <string name="result_text_alternative">Тапните на изображение для считывания</string>
+</resources>
