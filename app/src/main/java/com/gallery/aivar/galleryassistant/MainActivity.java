@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Vibrator;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -14,6 +15,7 @@ import android.util.SparseArray;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -44,6 +46,8 @@ public class MainActivity extends AppCompatActivity {
     BarcodeDetector barcodeDetector;
     CameraSource cameraSource;
     ListView listView;
+    Button button;
+    String moreInfoLink="";
     final int RequestCameraPermissionID = 1001;
 
     @Override
@@ -71,9 +75,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        button = (Button) findViewById(R.id.linkButton);
         listView = (ListView) findViewById(R.id.listView);
         cameraPreview = (SurfaceView) findViewById(R.id.cameraPreview);
         txtResult = (TextView) findViewById(R.id.txtResult);
+        button.setVisibility(View.INVISIBLE);
         barcodeDetector = new BarcodeDetector.Builder(this)
                 .setBarcodeFormats(Barcode.QR_CODE)
                 .build();
@@ -98,6 +104,7 @@ public class MainActivity extends AppCompatActivity {
                         public void run() {
                             listView.setAdapter(null);
                             txtResult.setText(R.string.result_text_default);
+                            button.setVisibility(View.INVISIBLE);
                         }
                     });
 
@@ -105,6 +112,16 @@ public class MainActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
             }
+        });
+
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+
+                Uri uri = Uri.parse(moreInfoLink); // missing 'http://' will cause crashed
+                moreInfoLink="";
+                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                startActivity(intent);
+                            }
         });
 
         cameraPreview.getHolder().addCallback(new SurfaceHolder.Callback() {
@@ -158,6 +175,7 @@ public class MainActivity extends AppCompatActivity {
                             values = url.split("/");
                             toGoUrl += ("магазин="+values[5]);
                             toGoUrl += ("&номенклатура="+values[6]);
+                            moreInfoLink = "http://www.gallery.kg/p3/kg/"+values[5]+"/"+values[6];
                             cameraSource.stop();
 
                             /*txtResult.setText(toGoUrl);
@@ -197,6 +215,7 @@ public class MainActivity extends AppCompatActivity {
                                                     listView.setAdapter(adapter);
 
                                                     txtResult.setText(R.string.result_text_alternative);
+                                                    button.setVisibility(View.VISIBLE);
                                                 }
                                             });
                                         } catch (JSONException e) {

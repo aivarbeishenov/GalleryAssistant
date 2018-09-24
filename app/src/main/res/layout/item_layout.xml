@@ -33,7 +33,7 @@
         android:textColor="@android:color/black"
         android:textSize="24sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.946"
+        app:layout_constraintHorizontal_bias="0.623"
         app:layout_constraintStart_toEndOf="@+id/textView"
         tools:ignore="MissingConstraints"
         tools:layout_editor_absoluteY="16dp" />
