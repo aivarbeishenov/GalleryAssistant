@@ -39,6 +39,8 @@ import okhttp3.Callback;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
+import static android.support.v7.media.MediaControlIntent.EXTRA_MESSAGE;
+
 public class MainActivity extends AppCompatActivity {
 
     SurfaceView cameraPreview;
@@ -75,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Инициализация всех используемых в приложении переменных
         button = (Button) findViewById(R.id.linkButton);
         listView = (ListView) findViewById(R.id.listView);
         cameraPreview = (SurfaceView) findViewById(R.id.cameraPreview);
@@ -114,26 +117,28 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        //Обработка перехода по ссылке при нажатии на кнопку "Подробнее"
         button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-
                 Uri uri = Uri.parse(moreInfoLink); // missing 'http://' will cause crashed
                 moreInfoLink="";
                 Intent intent = new Intent(Intent.ACTION_VIEW, uri);
                 startActivity(intent);
-                            }
+            }
         });
+
 
         cameraPreview.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(),
+                       android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+                {
                     ActivityCompat.requestPermissions(MainActivity.this,
-                            new String[]{android.Manifest.permission.CAMERA}, RequestCameraPermissionID);
-
+                       new String[]{android.Manifest.permission.CAMERA}, RequestCameraPermissionID);
                     return;
                 }
+
                 try {
                     cameraSource.start(cameraPreview.getHolder());
                 } catch (IOException e) {
@@ -142,9 +147,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-
-            }
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
 
             @Override
             public void surfaceDestroyed(SurfaceHolder holder) {
@@ -154,9 +157,7 @@ public class MainActivity extends AppCompatActivity {
 
         barcodeDetector.setProcessor(new Detector.Processor<Barcode>() {
             @Override
-            public void release() {
-
-            }
+            public void release() {}
 
             @Override
             public void receiveDetections(Detector.Detections<Barcode> detections) {
@@ -166,71 +167,97 @@ public class MainActivity extends AppCompatActivity {
                     txtResult.post(new Runnable() {
                         @Override
                         public void run() {
-                            Intent intent;
                             String url,toGoUrl= "http://www.gallery.kg/api/assistant/остатки-магазина?";
                             String[] values;
                             Vibrator vibrator = (Vibrator)getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
                             vibrator.vibrate(100);
                             url = qrcodes.valueAt(0).displayValue;
+                            
                             values = url.split("/");
-                            toGoUrl += ("магазин="+values[5]);
-                            toGoUrl += ("&номенклатура="+values[6]);
-                            moreInfoLink = "http://www.gallery.kg/p3/kg/"+values[5]+"/"+values[6];
-                            cameraSource.stop();
+                            if(values[2].equals("www.gallery.kg") && "p3".equals(values[3])) {
+                                toGoUrl += ("магазин=" + values[5]);
+                                toGoUrl += ("&номенклатура=" + values[6]);
+                                moreInfoLink = "http://www.gallery.kg/p3/kg/" + values[5] + "/" + values[6];
 
+                                OkHttpClient client = new OkHttpClient();
+                                final Request request = new Request.Builder()
+                                        .url(toGoUrl)
+                                        .build();
+
+                                client.newCall(request).enqueue(new Callback() {
+                                    @Override
+                                    public void onFailure(Call call, IOException e) {
+                                        e.printStackTrace();
+                                    }
+
+                                    @Override
+                                    public void onResponse(Call call, okhttp3.Response response) throws IOException {
+                                        if (response.isSuccessful())
+                                        {
+                                            final String apiResponse = response.body().string();
+                                            final List<RemainsModel> list = new ArrayList<RemainsModel>();
+
+
+                                            try {
+                                                JSONObject jsonObject = new JSONObject(apiResponse);
+
+                                                JSONArray jsonArray = jsonObject.getJSONArray("Остатки");
+                                                if(jsonArray.length()>0) {
+                                                    for (int i = 0; i < jsonArray.length(); i++) {
+                                                        JSONObject jObj = jsonArray.getJSONObject(i);
+                                                        list.add(new RemainsModel(jObj.getString("Характеристика"), jObj.getString("СвободныйОстаток")));
+                                                    }
+                                                } else {
+                                                    list.add(new RemainsModel("Нет на складе", ""));
+                                                }
+                                                MainActivity.this.runOnUiThread(new Runnable() {
+                                                    public void run() {
+                                                        RemainsModelAdapter adapter = new RemainsModelAdapter(getApplicationContext(), list);
+                                                        listView.setAdapter(adapter);
+
+                                                        txtResult.setText(R.string.result_text_alternative);
+                                                        button.setVisibility(View.VISIBLE);
+                                                    }
+                                                });
+                                            } catch (JSONException e) {
+                                                e.printStackTrace();
+                                            }
+
+                                        }
+                                    }
+                                });
+                            } else {
+                                txtResult.setText(R.string.result_text_wrong);
+                            }
+                            cameraSource.stop();
                             /*txtResult.setText(toGoUrl);
                             intent = new Intent(Intent.ACTION_VIEW, Uri.parse(toGoUrl));
                             startActivity(intent);*/
-
-                            OkHttpClient client = new OkHttpClient();
-                            final Request request = new Request.Builder()
-                                    .url(toGoUrl)
-                                    .build();
-
-                            client.newCall(request).enqueue(new Callback() {
-                                @Override
-                                public void onFailure(Call call, IOException e) {
-                                    e.printStackTrace();
-                                }
-
-                                @Override
-                                public void onResponse(Call call, okhttp3.Response response) throws IOException {
-                                    if (response.isSuccessful())
-                                    {
-                                        final String apiResponse = response.body().string();
-                                        final List<RemainsModel> list = new ArrayList<RemainsModel>();
-
-
-                                        try {
-                                            JSONObject jsonObject = new JSONObject(apiResponse);
-
-                                            JSONArray jsonArray = jsonObject.getJSONArray("Остатки");
-                                            for (int i=0;i<jsonArray.length();i++){
-                                                JSONObject jObj = jsonArray.getJSONObject(i);
-                                                list.add(new RemainsModel(jObj.getString("Характеристика"),jObj.getString("СвободныйОстаток")));
-                                            }
-                                            MainActivity.this.runOnUiThread(new Runnable() {
-                                                public void run() {
-                                                    RemainsModelAdapter adapter = new RemainsModelAdapter(getApplicationContext(), list);
-                                                    listView.setAdapter(adapter);
-
-                                                    txtResult.setText(R.string.result_text_alternative);
-                                                    button.setVisibility(View.VISIBLE);
-                                                }
-                                            });
-                                        } catch (JSONException e) {
-                                            e.printStackTrace();
-                                        }
-
-                                    }
-                                }
-                            });
-
-
                         }
                     });
                 }
             }
         });
     }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+
+        button = (Button) findViewById(R.id.linkButton);
+        listView = (ListView) findViewById(R.id.listView);
+        txtResult = (TextView) findViewById(R.id.txtResult);
+
+        listView.setAdapter(null);
+        txtResult.setText(R.string.result_text_default);
+        button.setVisibility(View.INVISIBLE);
+        // put your code here...
+
+    }
+
+   /* public void openWeb(View view) {
+        Intent intent = new Intent(this, WebActivity.class);
+        intent.putExtra(EXTRA_MESSAGE,"https://www.google.com/");
+        startActivity(intent);
+    }*/
 }
